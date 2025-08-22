@@ -303,7 +303,8 @@ else:
                         for i, citation in enumerate(citations, 1):
                             st.markdown(f"{i}. {citation}")
                     if not verification_result['is_valid']:
-                        st.warning(f"Response Quality Issues: {verification_result['issues']}")
+                        if os.getenv("DEBUG_MODE", "False") == "True":
+                            st.warning(f"Response Quality Issues: {verification_result['issues']}")
                     st.session_state.chat_history.append({
                         "role": "assistant",
                         "content": response_text,

@@ -7,6 +7,7 @@ services:
       - "8501:8501"
     environment:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - LLAMAPARSE_API_KEY=${LLAMAPARSE_API_KEY}
       - DEBUG_MODE=${DEBUG_MODE:-False}
       - VERBOSE_LOGGING=${VERBOSE_LOGGING:-False}
     volumes:
