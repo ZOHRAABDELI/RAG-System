@@ -57,15 +57,6 @@ Create `.env` file with your API keys:
 # Required API Keys
 GEMINI_API_KEY=your_gemini_api_key_here
 
-# Optional Performance Settings
-DEBUG_MODE=False
-VERBOSE_LOGGING=False
-CHUNK_SIZE=1200
-VECTOR_TOP_K=70
-KEYWORD_TOP_K=50
-FINAL_TOP_K=30
-ENABLE_RERANKING=True
-ENABLE_HYBRID_SEARCH=True
 ```
 
 ### 3. Run Application
@@ -244,15 +235,6 @@ The application tracks comprehensive metrics:
 - **Quality Indicators**: Verification results, issue detection
 - **Processing Statistics**: Document counts, index sizes
 
-### Performance Benchmarks
-
-| Metric | Target | Typical Range |
-|--------|--------|---------------|
-| Document Processing | <60s per MB | 20-45s |
-| Query Response | <10s | 3-8s |
-| Vector Search | <3s | 1-2s |
-| Memory Usage | <4GB | 1.5-3GB |
-
 ### Quality Assurance
 
 ```python
@@ -312,25 +294,6 @@ This provides:
 - Performance timing
 - Component status info
 
-## 🎯 Best Practices
-
-### Document Preparation
-- **File Size**: Keep PDFs under 50MB for optimal performance
-- **Quality**: Use high-quality, text-extractable PDFs
-- **Language**: Separate documents by language when possible
-- **Structure**: Well-formatted documents with clear sections work best
-
-### Query Optimization  
-- **Specificity**: Use specific terms and phrases
-- **Context**: Include relevant keywords for better retrieval
-- **Language**: Match query language to document language
-- **Length**: Moderate length queries (10-50 words) work best
-
-### System Tuning
-- **Memory**: Monitor session state and clear data when needed
-- **Retrieval**: Adjust top-K values based on document corpus size
-- **Quality**: Enable response verification for critical applications
-- **Performance**: Use appropriate chunk sizes for your documents
 
 ## 🔄 System Workflow
 
