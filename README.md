@@ -7,6 +7,7 @@ A  Retrieval-Augmented Generation (RAG) system with hybrid search capabilities, 
 ### Core Capabilities
 - ✅ **Interactive Chat Interface** - Streamlit-based UI with enhanced conversation tracking
 - ✅ **Advanced PDF Processing** - Multi-format document support with metadata extraction
+- ✅ **Optional LlamaParse Integration** - Use LlamaParse API for advanced document parsing (enable in sidebar)
 - ✅ **Hybrid Search Engine** - Combines vector similarity and keyword matching
 - ✅ **Enhanced Citations** - Detailed source references with page numbers and confidence scores
 - ✅ **Multi-language Support** - Specialized Arabic and English processing with language detection
@@ -56,7 +57,8 @@ Create `.env` file with your API keys:
 ```bash
 # Required API Keys
 GEMINI_API_KEY=your_gemini_api_key_here
-
+# Optional: For LlamaParse document parsing
+LLAMAPARSE_API_KEY=your_llamaparse_api_key_here
 ```
 
 ### 3. Run Application
@@ -76,12 +78,14 @@ streamlit run app.py
    - Use sidebar file uploader for PDFs
    - System supports multiple files simultaneously
    - Automatic metadata extraction and enhancement
+   - **Optionally enable LlamaParse** in the sidebar for advanced parsing (requires API key)
 
 2. **Processing Pipeline**:
    - Language detection (Arabic/English/Other)
    - Intelligent document chunking with configurable overlap
    - Separate vector and keyword index creation per language
    - ChromaDB persistent storage with language-specific collections
+   - **If LlamaParse is enabled, documents are parsed using the LlamaParse API**
 
 3. **Index Creation**:
    ```
@@ -209,6 +213,7 @@ ENABLE_RESPONSE_VERIFICATION = True
 
 The Streamlit sidebar provides real-time configuration:
 - **Document Management**: Upload, process, clear data
+- **LlamaParse Option**: Checkbox to enable LlamaParse for document parsing
 - **Metadata Inspection**: File details and processing info
 - **Index Statistics**: Language distribution, node counts
 - **Performance Metrics**: Processing times, response quality

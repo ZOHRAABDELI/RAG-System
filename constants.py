@@ -6,6 +6,8 @@ load_dotenv()
 
 # --- API Configuration ---
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+# Optional: LlamaParse API key for advanced document parsing
+LLAMAPARSE_API_KEY = os.getenv("LLAMAPARSE_API_KEY")
 
 # ---  Model Configuration ---
 LLM_MODEL_NAME = "models/gemini-2.0-flash"  
@@ -272,7 +274,23 @@ CHART_COLORS = {
     "warning": "#ff9800",
     "error": "#d62728"
 }
+# --- LlamaParse Configuration ---
+PARSING_INSTRUCTIONS = """
+This document contains legal text that may include:
+- Articles, sections, and subsections with numbering
+- Lists of  principles, rights, or obligations
+- Complex  terminology and cross-references
+- Tables and structured information
 
+Please preserve:
+- All numbering systems (articles, sections, paragraphs)
+- List structures and bullet points
+- Legal terminology exactly as written
+- Cross-references between sections
+- Table structures where possible
+
+Focus on maintaining the hierarchical structure and legal precision of the document.
+"""
 # ---  Error Messages ---
 ERROR_MESSAGES = {
     "arabic": {

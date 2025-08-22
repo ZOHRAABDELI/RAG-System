@@ -60,8 +60,8 @@ st.set_page_config(
     layout=constants.PAGE_CONFIG["layout"],
     initial_sidebar_state=constants.PAGE_CONFIG["initial_sidebar_state"]
 )
-st.title("Enhanced Agentic RAG System")
-st.caption("Advanced PDF analysis with hybrid search, improved citations, and robust retrieval")
+st.title("Agentic RAG System")
+st.caption(" PDF analysis with hybrid search, improved citations, and robust retrieval")
 
 gemini_api_key = constants.GEMINI_API_KEY
 if not gemini_api_key:
@@ -97,14 +97,14 @@ if 'metadata_stats' not in st.session_state:
 with st.sidebar:
     st.header("Configuration")
     st.subheader("Document Management")
+    use_llamaparse = st.checkbox("Use LlamaParse for document parsing", value=False)
     uploaded_files = st.file_uploader("Upload PDF documents", type=['pdf'], accept_multiple_files=True)
     if st.button("Process Documents"):
         if not uploaded_files:
             st.warning("Please upload at least one PDF file.")
         else:
-            with st.spinner("Processing documents with enhanced pipeline..."):
+            with st.spinner("Processing documents with pipeline..."):
                 try:
-                    # Use MockLLM for indexing to avoid rate limits
                     Settings.llm = MockLLM()
                     logger.info("Settings.llm configured to MockLLM for indexing.")
 
@@ -122,17 +122,50 @@ with st.sidebar:
                                 )
                                 st.session_state.metadata_stats[uploaded_file.name] = file_metadata
                         documents = []
-                        reader = SimpleDirectoryReader(
-                            input_dir=tmp_input_path,
-                            filename_as_id=True,
-                            file_metadata=lambda file_path: {
-                                'file_name': os.path.basename(file_path),
-                                'filename': os.path.basename(file_path),
-                                'file_path': file_path,
-                                'processing_method': 'simple_reader'
-                            }
-                        )
-                        documents = reader.load_data()
+                        if use_llamaparse:
+                            # Use LlamaParse API for document parsing (direct integration)
+                            llama_parse_api_key = constants.LLAMAPARSE_API_KEY
+                            if not llama_parse_api_key:
+                                st.error("LlamaParse API key missing. Please set LLAMAPARSE_API_KEY in your .env file.")
+                                st.stop()
+                            try:
+                                from llama_parse import LlamaParse
+                                parser = LlamaParse(
+                                    result_type="markdown",
+                                    api_key=llama_parse_api_key,
+                                    parsing_instruction=getattr(constants, "PARSING_INSTRUCTIONS", None)
+                                )
+                                for uploaded_file in uploaded_files:
+                                    if uploaded_file.name.lower().endswith('.pdf'):
+                                        temp_file_path = os.path.join(tmp_input_path, uploaded_file.name)
+                                        parsed_docs = parser.load_data(temp_file_path)
+                                        # Enhanced metadata for each document
+                                        for doc in parsed_docs:
+                                            doc.metadata.update({
+                                                'file_name': uploaded_file.name,
+                                                'filename': uploaded_file.name,
+                                                'file_path': temp_file_path,
+                                                'file_size': uploaded_file.size,
+                                                'processing_method': 'llama_parse'
+                                            })
+                                        documents.extend(parsed_docs)
+                            except Exception as e:
+                                logger.error(f"LlamaParse error: {e}")
+                                st.error(f"LlamaParse error: {str(e)}")
+                                st.stop()
+                        else:
+                            # Use default SimpleDirectoryReader
+                            reader = SimpleDirectoryReader(
+                                input_dir=tmp_input_path,
+                                filename_as_id=True,
+                                file_metadata=lambda file_path: {
+                                    'file_name': os.path.basename(file_path),
+                                    'filename': os.path.basename(file_path),
+                                    'file_path': file_path,
+                                    'processing_method': 'simple_reader'
+                                }
+                            )
+                            documents = reader.load_data()
                         if not documents:
                             st.error("No documents could be loaded.")
                         else:
@@ -165,17 +198,22 @@ with st.sidebar:
                                             'chunk_id': node.node_id,
                                             'processing_timestamp': str(os.path.getmtime(tmp_input_path))
                                         })
+                                    # Get or create ChromaDB collection for language
                                     collection_name = constants.CHROMA_COLLECTIONS.get(lang, f"legal_documents_{lang}")
                                     chroma_client = chromadb.PersistentClient(path=constants.VECTORSTORE_DIR)
                                     chroma_collection = chroma_client.get_or_create_collection(collection_name)
+                                    # Set up vector store and storage context
                                     vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
                                     storage_context = StorageContext.from_defaults(vector_store=vector_store)
+                                    # Build vector index for semantic search
                                     vector_index = VectorStoreIndex(
                                         nodes,
                                         storage_context=storage_context,
                                         show_progress=True
                                     )
+                                    # Build keyword index for keyword-based search
                                     keyword_index = SimpleKeywordTableIndex(nodes, show_progress=True)
+                                    # Create hybrid retriever combining both search methods
                                     hybrid_retriever = HybridRetriever(
                                         vector_index=vector_index,
                                         keyword_index=keyword_index,
@@ -183,13 +221,14 @@ with st.sidebar:
                                         keyword_top_k=constants.KEYWORD_TOP_K,
                                         alpha=0.7
                                     )
+                                    # Store indices and retriever in session state
                                     st.session_state.indices[lang] = {
                                         'vector': vector_index,
                                         'keyword': keyword_index
                                     }
                                     st.session_state.hybrid_retrievers[lang] = hybrid_retriever
                                     st.success(f"Built {lang} indices with {len(docs)} documents")
-                            st.success("Enhanced processing completed!")
+                            st.success("processing completed!")
                 except Exception as e:
                     logger.error(f"Error processing documents: {e}", exc_info=True)
                     st.error(f"Processing error: {str(e)}")
