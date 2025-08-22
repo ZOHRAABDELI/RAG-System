@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  rag-app:
+    build: .
+    ports:
+      - "8501:8501"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - DEBUG_MODE=${DEBUG_MODE:-False}
+      - VERBOSE_LOGGING=${VERBOSE_LOGGING:-False}
+    volumes:
+      - ./chroma_db:/app/chroma_db
+      - ./logs:/app/logs
+      - ./temp_uploads:/app/temp_uploads
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+        reservations:
+          memory: 2G
+          cpus: '1.0'
+
+
+networks:
+  default:
+    driver: bridge

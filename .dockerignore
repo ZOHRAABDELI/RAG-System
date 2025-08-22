@@ -1,0 +1,86 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Database and storage
+enhanced_chroma_db/
+*.db
+*.sqlite
+
+# Temporary files
+temp_uploads/
+*.tmp
+*.temp
+
+# Git
+.git/
+.gitignore
+
+# Docker
+.dockerignore
+Dockerfile*
+docker-compose*
+
+# Documentation
+README.md
+*.md
+
+# Test files
+test_*
+*_test.py
+tests/
+
+# Cache
+.cache/
+.pytest_cache/

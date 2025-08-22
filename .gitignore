@@ -1,0 +1,4 @@
+embedding_cache/
+__pycache__/
+chroma_db/
+.env
