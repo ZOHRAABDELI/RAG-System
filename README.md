@@ -9,7 +9,7 @@ A  Retrieval-Augmented Generation (RAG) system with hybrid search capabilities, 
 - ✅ **Advanced PDF Processing** - Multi-format document support with metadata extraction
 - ✅ **Optional LlamaParse Integration** - Use LlamaParse API for advanced document parsing 
 - ✅ **Hybrid Search Engine** - Combines vector similarity and keyword matching
-- ✅ **Enhanced Citations** - Detailed source references with page numbers and confidence scores
+- ✅ **Detailed Citations** - Detailed source references with page numbers and confidence scores
 - ✅ **Multi-language Support** - Specialized Arabic and English processing with language detection
 - ✅ **Conversation Memory** - Full chat history with technical metadata
 
@@ -105,7 +105,7 @@ streamlit run app.py
 5. **Response Generation**: 
    - Context-aware prompt engineering
    - Gemini 2.0 Flash for high-quality responses
-   - Enhanced citation formatting with source tracking
+   - Detailed citation formatting with source tracking
 6. **Quality Verification**: Built-in response validation and issue detection
 
 ## 🏗️ Architecture Deep Dive
@@ -114,7 +114,7 @@ streamlit run app.py
 
 #### 1. Document Processing Pipeline
 ```python
-# Enhanced metadata extraction
+#  metadata extraction
 MetadataEnhancer → Language Detection → 
 SentenceSplitter → IngestionPipeline → Index Creation
 ```
@@ -123,7 +123,7 @@ SentenceSplitter → IngestionPipeline → Index Creation
 - Automatic file metadata extraction (size, type, hash)
 - Language-specific processing with Arabic text normalization
 - Configurable chunking strategies (sentence/semantic/fixed)
-- Enhanced node metadata with processing timestamps
+-  node metadata with processing timestamps
 
 #### 2. Hybrid Retrieval System
 ```python
@@ -163,7 +163,7 @@ class ResponseVerifier:
     - Length and quality validation
 ```
 
-### Enhanced Features Implementation
+###  Features Implementation
 
 #### Multi-Language Support
 - **Language Detection**: Character-based + langdetect library
