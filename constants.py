@@ -254,7 +254,7 @@ ENABLE_FACT_CHECKING = False        # Experimental
 
 # --- UI Configuration ---
 PAGE_CONFIG = {
-    "page_title": "🤖  Agentic RAG System",
+    "page_title": "Agentic RAG System",
     "page_icon": "🤖",
     "layout": "wide",
     "initial_sidebar_state": "expanded"

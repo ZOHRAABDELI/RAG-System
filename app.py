@@ -50,7 +50,8 @@ from utils import (
     create_comprehensive_prompt_v2,
     HybridRetriever,
     MetadataEnhancer,
-    ResponseVerifier
+    ResponseVerifier,
+    analyze_answer_completeness
 )
 
 # Configure Logging
@@ -366,6 +367,9 @@ else:
             with st.chat_message("user"):
                 st.markdown(prompt)
             # Generate  response
+            # Replace the query processing section in your main app with this enhanced version
+# Enhanced and safe query processing section for your app.py
+
             with st.chat_message("assistant"):
                 message_placeholder = st.empty()
                 try:
@@ -381,11 +385,16 @@ else:
                             similarity_top_k=constants.VECTOR_TOP_K
                         )
                         retrieved_nodes = retriever.retrieve(prompt)
+
+                    # Debug logging
+                    logger.info(f"Retrieved {len(retrieved_nodes)} nodes for query: {prompt[:50]}...")
+
                     # Apply reranking if enabled
+                    original_nodes_count = len(retrieved_nodes)
                     if constants.ENABLE_RERANKING and retrieved_nodes:
                         if constants.RERANKER_TYPE == "llm":
                             reranker = LLMRerank(
-                                llm=llm, # <-- Uses the  Gemini LLM for reranking if configured
+                                llm=llm,
                                 top_n=constants.FINAL_TOP_K
                             )
                         else:
@@ -394,34 +403,102 @@ else:
                                 top_n=constants.FINAL_TOP_K
                             )
                         retrieved_nodes = reranker.postprocess_nodes(retrieved_nodes, QueryBundle(prompt))
-                    # Create  context
+                        logger.info(f"After reranking: {len(retrieved_nodes)} nodes (was {original_nodes_count})")
+
+                    # Ensure we have nodes to work with
+                    if not retrieved_nodes:
+                        st.error("❌ لم يتم العثور على محتوى ذي صلة في الوثائق المرفوعة.")
+                        st.session_state.chat_history.append({
+                            "role": "assistant",
+                            "content": "❌ لم يتم العثور على محتوى ذي صلة في الوثائق المرفوعة.",
+                            "citations": [],
+                            "language": query_language,
+                            "error": True
+                        })
+                        
+
+                    # Create enhanced context
                     context_str = "\n".join([
                         f"[Document: {node.metadata.get('file_name', 'Unknown')} | "
                         f"Page: {node.metadata.get('page_label', 'N/A')}]\n{node.get_content()}"
                         for node in retrieved_nodes
                     ])
-                  
+                
+                    # Generate response
                     enhanced_prompt = create_comprehensive_prompt_v2(query_language, context_str, prompt)
                     response_text = llm.complete(enhanced_prompt).text
 
-                    # Verify response quality
-                    verifier = ResponseVerifier()
-                    verification_result = verifier.verify_response(
-                        response_text, prompt, retrieved_nodes, context_str
-                    )
-                    # Format  citations
-                    citations = format_citations_enhanced(retrieved_nodes)
                     # Display response
                     message_placeholder.markdown(response_text)
-                    # Display  citations
+                    
+                    # Format citations with multiple fallback strategies
+                    citations = []
+                    try:
+                        citations = format_citations_enhanced(retrieved_nodes)
+                        logger.info(f"Enhanced citations generated: {len(citations)}")
+                    except Exception as e:
+                        logger.error(f"Enhanced citation formatting failed: {e}")
+                        try:
+                            # Fallback to safe citation formatting
+                            citations = format_citations_safe_fallback(retrieved_nodes)
+                            logger.info(f"Fallback citations generated: {len(citations)}")
+                        except Exception as e2:
+                            logger.error(f"Fallback citation formatting also failed: {e2}")
+                            # Last resort: create basic citations
+                            citations = [f"📄 مصدر 1 | {len(retrieved_nodes)} مقاطع مسترجعة"]
+
+                    # Verify response quality (optional, non-blocking)
+                    verification_result = {"is_valid": True, "issues": "None"}
+                    try:
+                        if constants.ENABLE_RESPONSE_VERIFICATION:
+                            verifier = ResponseVerifier()
+                            verification_result = verifier.verify_response(
+                                response_text, prompt, retrieved_nodes, context_str
+                            )
+                    except Exception as e:
+                        logger.warning(f"Response verification failed: {e}")
+
+                    # Always display citations if we have retrieved nodes
                     if citations:
-                        st.markdown("**📚 Sources:**")
+                        st.markdown("**📚 المصادر:**")
                         for i, citation in enumerate(citations, 1):
                             st.markdown(f"{i}. {citation}")
-                    # Display verification info if issues found
-                    if constants.DEBUG_MODE and not verification_result['is_valid']:
-                        st.warning(f"⚠️ Response Quality Issues: {verification_result['issues']}")
-                    # Store  chat history
+                    else:
+                        # This should never happen now, but just in case
+                        st.markdown("**📚 المصادر:**")
+                        st.markdown(f"1. 📄 وثائق متعددة | {len(retrieved_nodes)} مقطع مسترجع")
+                        citations = [f"📄 وثائق متعددة | {len(retrieved_nodes)} مقطع مسترجع"]
+                    
+                    # Debug information (if enabled)
+                    if constants.DEBUG_MODE:
+                        with st.expander("🔍 تحليل الجودة"):
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                st.metric("عدد المقاطع المسترجعة", len(retrieved_nodes))
+                            with col2:
+                                st.metric("عدد المصادر المعروضة", len(citations))
+                            with col3:
+                                avg_score = 0.0
+                                try:
+                                    scores = [getattr(node, 'score', 0.0) for node in retrieved_nodes if hasattr(node, 'score')]
+                                    avg_score = sum(float(s) for s in scores if s is not None) / max(len(scores), 1)
+                                except Exception:
+                                    avg_score = 0.0
+                                st.metric("متوسط نقاط الصلة", f"{avg_score:.2f}")
+                            
+                            # Show detailed node information
+                            if st.checkbox("إظهار تفاصيل المقاطع المسترجعة"):
+                                for i, node in enumerate(retrieved_nodes[:5]):  # Show first 5
+                                    with st.expander(f"مقطع {i+1}"):
+                                        try:
+                                            st.write(f"**الملف:** {node.metadata.get('file_name', 'غير محدد')}")
+                                            st.write(f"**النقاط:** {getattr(node, 'score', 'غير متاح')}")
+                                            content = node.get_content()[:200] + "..." if len(node.get_content()) > 200 else node.get_content()
+                                            st.write(f"**المحتوى:** {content}")
+                                        except Exception as e:
+                                            st.write(f"خطأ في عرض المقطع: {e}")
+
+                    # Store enhanced chat history
                     st.session_state.chat_history.append({
                         "role": "assistant",
                         "content": response_text,
@@ -429,20 +506,34 @@ else:
                         "language": query_language,
                         "retrieval_method": "hybrid" if constants.ENABLE_HYBRID_SEARCH else "vector",
                         "verification": verification_result,
-                        "num_sources": len(retrieved_nodes)
+                        "num_sources": len(retrieved_nodes),
+                        "effective_sources": len(citations),
+                        "processing_success": True
                     })
+                    
                 except Exception as e:
                     logger.error(f"Error generating response: {e}", exc_info=True)
-                    error_msg = f"❌ Query processing error: {str(e)}"
+                    error_msg = f"❌ خطأ في معالجة الاستفسار: {str(e)}"
                     message_placeholder.markdown(error_msg)
+                    
+                    # Even in error case, try to show something useful
+                    try:
+                        if 'retrieved_nodes' in locals() and retrieved_nodes:
+                            st.markdown("**📚 المصادر (جزئية):**")
+                            st.markdown("1. 📄 مصدر متاح | خطأ في المعالجة")
+                            error_citations = ["📄 مصدر متاح | خطأ في المعالجة"]
+                        else:
+                            error_citations = []
+                    except Exception:
+                        error_citations = []
+                        
                     st.session_state.chat_history.append({
                         "role": "assistant",
                         "content": error_msg,
-                        "citations": [],
+                        "citations": error_citations,
                         "language": query_language,
                         "error": True
                     })
-
 #  Chat History Display
 if st.session_state.chat_history:
     st.subheader("💬  Conversation History")

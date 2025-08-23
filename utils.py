@@ -16,121 +16,62 @@ import constants as constants
 
 logger = logging.getLogger(__name__)
 
+# --- Place this updated function in enhanced_app.py, replacing the existing one ---
 def format_citations_enhanced(retrieved_nodes: List[NodeWithScore]) -> List[str]:
+    """
+    Enhanced citation formatting that always shows sources when nodes are available,
+    but intelligently deduplicates and prioritizes the most relevant ones.
+    """
+    if not retrieved_nodes:
+        return []
     
-    file_to_pages = defaultdict(list)
-    seen_citations = set()
-    for i, node_with_score in enumerate(retrieved_nodes):
-        try:
-            # Handle both NodeWithScore and regular nodes
-            if isinstance(node_with_score, NodeWithScore):
-                node = node_with_score.node
-                score = getattr(node_with_score, 'score', None)
-            else:
-                node = node_with_score
-                score = None 
-
-            if score is not None:
-                try:
-                    score = float(score) 
-                except (ValueError, TypeError):
-                    score = None 
-
-            if not hasattr(node, 'metadata'):
-                logger.warning(f"Node {i} missing metadata")
-                continue
-            metadata = node.metadata
-            file_name = (
-                metadata.get('file_name') or
-                metadata.get('filename') or
-                metadata.get('source') or
-                metadata.get('document_id') or
-                os.path.basename(metadata.get('file_path', '')) or
-                f"Document_{i+1}"
-            )
-            # Clean and validate file name
-            if file_name == '' or file_name == 'Unknown File':
-                # Try to extract from file_path or other metadata
-                file_path = metadata.get('file_path', '')
-                if file_path:
-                    file_name = os.path.basename(file_path)
-                else:
-                    # Generate a meaningful name from content hash or other metadata
-                    content_hash = hashlib.md5(node.get_content()[:100].encode()).hexdigest()[:8]
-                    file_name = f"Document_{content_hash}"
-            #  page extraction with multiple fallbacks
-            page_info = (
-                metadata.get('page_label') or
-                metadata.get('page') or
-                metadata.get('page_number') or
-                metadata.get('chunk_id', '')
-            )
-            # Extract section or chapter info if available
-            section_info = metadata.get('section', metadata.get('chapter', ''))
-            # Build comprehensive page part
-            page_parts = []
-            if page_info and page_info != 'N/A':
-                if str(page_info).isdigit():
-                    page_parts.append(f"Page {page_info}")
-                else:
-                    page_parts.append(f"Section {page_info}")
-            if section_info:
-                page_parts.append(f"Chapter {section_info}")
-            if score is not None and isinstance(score, (int, float)) and score > 0: # <-- Safer check
-                page_parts.append(f"(Relevance: {score:.2f})")
-            # Add processing method if available
-            processing_method = metadata.get('processing_method', '')
-            if processing_method:
-                page_parts.append(f"[{processing_method}]")
-            page_str = " | ".join(page_parts)
-            # Create unique identifier for deduplication
-            citation_key = (file_name, str(page_info), section_info)
-            if citation_key not in seen_citations and page_str:
-                file_to_pages[file_name].append(page_str)
-                seen_citations.add(citation_key)
-        except Exception as e:
-            logger.error(f"Error processing citation for node {i}: {e}")
-            # Fallback citation
-            file_to_pages[f"Document_{i+1}"].append("Error in metadata extraction")
-
-    citations = []
-    for file_name, pages in file_to_pages.items():
-        if pages:
-            citation = f"📄 {file_name} | " + ", ".join(pages)
-            citations.append(citation)
-    return citations
-
-""" 
-def format_citations_enhanced(retrieved_nodes: List[NodeWithScore]) -> List[str]:
-   
     # Dictionary to hold the best citation info per file based on highest score
-    # Key: file_name, Value: {'page_str': str, 'score': float}
+    # Key: file_name, Value: {'page_str': str, 'score': float, 'content': str}
     file_citations = {}
     
-    # Threshold for considering a node's score relevant enough for citation
-    # Nodes with scores below this (and not the best for their file) are ignored
-    MIN_RELEVANCE_FOR_CITATION = 0.1 
+    # Collect all scores to determine thresholds
+    scores = []
+    for node_with_score in retrieved_nodes:
+        try:
+            if isinstance(node_with_score, NodeWithScore):
+                score = getattr(node_with_score, 'score', 0.0)
+                try:
+                    scores.append(float(score) if score is not None else 0.0)
+                except (ValueError, TypeError):
+                    scores.append(0.0)
+        except Exception:
+            continue
+    
+    # Set a more lenient threshold - we want to show sources, not hide them
+    if scores:
+        max_score = max(scores)
+        mean_score = sum(scores) / len(scores)
+        # Much more lenient threshold - only filter out truly irrelevant content
+        MIN_RELEVANCE_FOR_CITATION = max(0.05, mean_score * 0.1)  # Very low threshold
+    else:
+        MIN_RELEVANCE_FOR_CITATION = 0.0  # Show everything if no scores
 
     for i, node_with_score in enumerate(retrieved_nodes):
         try:
             # Handle both NodeWithScore and potential fallbacks
             if isinstance(node_with_score, NodeWithScore):
                 node = node_with_score.node
-                score = getattr(node_with_score, 'score', None)
+                score = getattr(node_with_score, 'score', 0.0)
             else:
-                # If it's not a NodeWithScore, it might be from an older process, skip detailed scoring
+                # Fallback - treat as node with default score
                 node = node_with_score
-                score = None
+                score = 0.0
 
-            # Safely convert score to float, defaulting to 0.0 if missing or invalid
+            # Safely convert score to float
             try:
                 score = float(score) if score is not None else 0.0
             except (ValueError, TypeError):
                 score = 0.0
 
             if not hasattr(node, 'metadata'):
-                logger.warning(f"Node {i} missing metadata")
-                continue
+                logger.warning(f"Node {i} missing metadata, using defaults")
+                # Create minimal metadata for nodes without it
+                node.metadata = {'file_name': f'Document_{i+1}'}
 
             metadata = node.metadata
 
@@ -144,14 +85,22 @@ def format_citations_enhanced(retrieved_nodes: List[NodeWithScore]) -> List[str]
                 f"Document_{i+1}"
             )
 
-            # Clean and ensure a valid file name
-            if not file_name or file_name in ['Unknown File', '']:
-                 file_path = metadata.get('file_path', '')
-                 if file_path:
-                     file_name = os.path.basename(file_path)
-                 else:
-                     content_hash = hashlib.md5(node.get_content()[:100].encode()).hexdigest()[:8]
-                     file_name = f"Document_{content_hash}"
+            # Clean file name
+            if not file_name or file_name.strip() in ['Unknown File', '', 'Unknown']:
+                file_path = metadata.get('file_path', '')
+                if file_path:
+                    file_name = os.path.basename(file_path)
+                else:
+                    # Generate a more meaningful name based on content
+                    try:
+                        content_preview = node.get_content()[:50].strip()
+                        if content_preview:
+                            content_hash = hashlib.md5(content_preview.encode()).hexdigest()[:6]
+                            file_name = f"Source_{content_hash}"
+                        else:
+                            file_name = f"Document_{i+1}"
+                    except Exception:
+                        file_name = f"Document_{i+1}"
 
             # --- Page/Section/Info Extraction ---
             page_info = (
@@ -165,63 +114,215 @@ def format_citations_enhanced(retrieved_nodes: List[NodeWithScore]) -> List[str]
 
             # Build the page/section string
             page_parts = []
-            if page_info and str(page_info).strip() not in ['N/A', '']:
-                if str(page_info).isdigit():
-                    page_parts.append(f"Page {page_info}")
+            if page_info and str(page_info).strip() not in ['N/A', '', 'None']:
+                page_str = str(page_info).strip()
+                if page_str.isdigit():
+                    page_parts.append(f"صفحة {page_info}" if detect_language(str(page_info)) == "arabic" else f"Page {page_info}")
                 else:
-                    # Assume non-numeric is a section label
-                    page_parts.append(f"Section {page_info}")
-            if section_info and str(section_info).strip() not in ['N/A', '']:
-                page_parts.append(f"Chapter {section_info}")
+                    page_parts.append(f"القسم {page_info}" if detect_language(str(page_info)) == "arabic" else f"Section {page_info}")
             
-            # Include score if it's meaningful and above the threshold
-            if score is not None and score >= MIN_RELEVANCE_FOR_CITATION:
-                page_parts.append(f"(Relevance: {score:.2f})")
+            if section_info and str(section_info).strip() not in ['N/A', '', 'None']:
+                page_parts.append(f"الفصل {section_info}" if detect_language(str(section_info)) == "arabic" else f"Chapter {section_info}")
             
-            page_str = " | ".join(page_parts) if page_parts else "Location unspecified"
+            # Only include score if it's meaningful (> 0.1) to avoid clutter
+            if score > 0.1:
+                page_parts.append(f"(الصلة: {score:.2f})")
+            
+            page_str = " | ".join(page_parts) if page_parts else "موقع غير محدد"
 
-            # --- Improved Deduplication Logic Focused on File Name ---
-            # Check if we've already seen this file
+            # --- Lenient Filtering Logic ---
+            # Only filter out nodes with extremely low scores or empty content
+            content = node.get_content() if hasattr(node, 'get_content') else str(node)
+            
+            # Very basic filtering - only exclude truly empty or irrelevant content
+            if len(content.strip()) < 10:  # Only filter very short content
+                continue
+                
+            # Only apply score filter if we have meaningful scores
+            if scores and max(scores) > 0.1 and score < MIN_RELEVANCE_FOR_CITATION:
+                continue
+
+            # Check if we've seen this file before
             if file_name in file_citations:
-                # If the current node has a higher score, update the citation info for this file.
-                # This ensures only the most relevant-seeming part of a document is cited.
+                # Keep the higher scoring chunk for this file
                 if score > file_citations[file_name]['score']:
                     file_citations[file_name] = {
                         'page_str': page_str,
-                        'score': score
+                        'score': score,
+                        'content': content[:200] + "..." if len(content) > 200 else content
                     }
-                # If the score is equal or lower, we keep the existing (better) citation for this file.
             else:
-                # First time seeing this file, add it only if it has a reasonable score.
-                if score >= MIN_RELEVANCE_FOR_CITATION:
-                    file_citations[file_name] = {
-                        'page_str': page_str,
-                        'score': score
-                    }
-                # Nodes with very low scores (potentially irrelevant) are not added initially.
+                # Add new file
+                file_citations[file_name] = {
+                    'page_str': page_str,
+                    'score': score,
+                    'content': content[:200] + "..." if len(content) > 200 else content
+                }
 
         except Exception as e:
             logger.error(f"Error processing citation for node {i}: {e}")
-            # Robust fallback, but only add if not already present or if needed for debugging
-            # Usually, we'd prefer not to show these.
-            # fallback_name = f"Document_{i+1}"
-            # if fallback_name not in file_citations:
-            #     file_citations[fallback_name] = {'page_str': "Error in metadata extraction", 'score': 0.0}
+            # Even with errors, try to add a basic citation
+            try:
+                fallback_name = f"مصدر_{i+1}"  # Arabic fallback
+                if fallback_name not in file_citations:
+                    file_citations[fallback_name] = {
+                        'page_str': "خطأ في استخراج البيانات الوصفية",
+                        'score': 0.0,
+                        'content': "محتوى غير متاح"
+                    }
+            except Exception:
+                continue
+
+    # --- Ensure we always have citations if we had nodes ---
+    if not file_citations and retrieved_nodes:
+        # Fallback: create basic citations for all nodes
+        logger.warning("No citations generated, creating fallback citations")
+        for i, node_with_score in enumerate(retrieved_nodes[:3]):  # Limit to 3 fallbacks
+            try:
+                if isinstance(node_with_score, NodeWithScore):
+                    node = node_with_score.node
+                else:
+                    node = node_with_score
+                
+                file_citations[f"مصدر_{i+1}"] = {
+                    'page_str': "موقع غير محدد",
+                    'score': 0.0,
+                    'content': getattr(node, 'text', str(node))[:100] + "..."
+                }
+            except Exception:
+                file_citations[f"مصدر_{i+1}"] = {
+                    'page_str': "موقع غير محدد", 
+                    'score': 0.0,
+                    'content': "محتوى غير متاح"
+                }
 
     # --- Generate Final Citation List ---
-    # Sort by score descending to show most relevant sources first
+    if not file_citations:
+        # Last resort fallback
+        return [f"📄 مصدر 1 | موقع غير محدد"]
+        
+    # Sort by score descending, but always show at least one citation
     sorted_files = sorted(file_citations.items(), key=lambda item: item[1]['score'], reverse=True)
 
     citations = []
     for file_name, citation_data in sorted_files:
         # Format the citation string for this file
         citation = f"📄 {file_name}"
-        if citation_data['page_str']:
+        if citation_data['page_str'] and citation_data['page_str'] != "موقع غير محدد":
             citation += f" | {citation_data['page_str']}"
         citations.append(citation)
 
+    # Ensure we have at least one citation, limit to reasonable number
+    if not citations:
+        citations = [f"📄 مصدر 1 | موقع غير محدد"]
+    elif len(citations) > 5:  # Limit to 5 sources max
+        citations = citations[:5]
+
     return citations
- """
+
+
+def format_citations_safe_fallback(retrieved_nodes: List[NodeWithScore]) -> List[str]:
+    """
+    Ultra-safe fallback citation formatter that ALWAYS returns citations if nodes exist.
+    Use this as a backup if the enhanced version fails.
+    """
+    if not retrieved_nodes:
+        return []
+    
+    citations = []
+    seen_files = set()
+    
+    for i, node_with_score in enumerate(retrieved_nodes):
+        try:
+            # Extract basic info safely
+            if isinstance(node_with_score, NodeWithScore):
+                node = node_with_score.node
+                score = getattr(node_with_score, 'score', 0.0)
+            else:
+                node = node_with_score
+                score = 0.0
+            
+            # Get file name with multiple fallbacks
+            file_name = "مصدر غير محدد"  # Default Arabic
+            if hasattr(node, 'metadata') and node.metadata:
+                file_name = (
+                    node.metadata.get('file_name') or
+                    node.metadata.get('filename') or
+                    f"مصدر_{i+1}"
+                )
+            
+            # Avoid duplicates
+            if file_name in seen_files:
+                continue
+            seen_files.add(file_name)
+            
+            # Create simple citation
+            citation = f"📄 {file_name}"
+            
+            # Add page info if available
+            if hasattr(node, 'metadata') and node.metadata:
+                page_info = node.metadata.get('page_label') or node.metadata.get('page')
+                if page_info and str(page_info).strip() not in ['N/A', '', 'None']:
+                    citation += f" | صفحة {page_info}"
+            
+            citations.append(citation)
+            
+            # Limit to 3 sources for simplicity
+            if len(citations) >= 3:
+                break
+                
+        except Exception as e:
+            logger.error(f"Error in fallback citation for node {i}: {e}")
+            # Even if there's an error, add a basic citation
+            citations.append(f"📄 مصدر_{i+1} | موقع غير محدد")
+    
+    # Ensure at least one citation
+    if not citations:
+        citations = [f"📄 مصدر 1 | موقع غير محدد"]
+    
+    return citations
+
+def analyze_answer_completeness(retrieved_nodes: List[NodeWithScore], query: str) -> Dict[str, Any]:
+    """
+    Analyze if the answer is likely complete in the top-scoring source.
+    This helps determine if multiple sources are actually needed.
+    """
+    if not retrieved_nodes:
+        return {"is_complete": False, "primary_source": None, "confidence": 0.0}
+    
+    # Get the top node
+    top_node = retrieved_nodes[0] if isinstance(retrieved_nodes[0], NodeWithScore) else None
+    if not top_node:
+        return {"is_complete": False, "primary_source": None, "confidence": 0.0}
+    
+    top_content = top_node.node.get_content()
+    top_score = getattr(top_node, 'score', 0.0)
+    
+    # Analyze query complexity
+    query_terms = set(re.findall(r'\w+', query.lower()))
+    content_terms = set(re.findall(r'\w+', top_content.lower()))
+    
+    # Calculate coverage
+    coverage = len(query_terms & content_terms) / max(len(query_terms), 1)
+    
+    # Check for list indicators in query
+    list_indicators = ['list', 'all', 'every', 'each', 'جميع', 'كل', 'قائمة']
+    is_list_query = any(indicator in query.lower() for indicator in list_indicators)
+    
+    # Determine completeness
+    is_complete = (
+        coverage > 0.6 and  # Good term coverage
+        top_score > 0.5 and  # Decent confidence
+        (not is_list_query or len(top_content) > 200)  # For list queries, need substantial content
+    )
+    
+    return {
+        "is_complete": is_complete,
+        "primary_source": top_node.node.metadata.get('file_name', 'Unknown'),
+        "confidence": float(top_score) if top_score is not None else 0.0,
+        "coverage": coverage
+    }
+
 def detect_language(text: str) -> str:
     """
     Enhanced language detection with better Arabic support and confidence scoring.
