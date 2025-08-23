@@ -7,7 +7,7 @@ A  Retrieval-Augmented Generation (RAG) system with hybrid search capabilities, 
 ### Core Capabilities
 - ✅ **Interactive Chat Interface** - Streamlit-based UI with enhanced conversation tracking
 - ✅ **Advanced PDF Processing** - Multi-format document support with metadata extraction
-- ✅ **Optional LlamaParse Integration** - Use LlamaParse API for advanced document parsing (enable in sidebar)
+- ✅ **Optional LlamaParse Integration** - Use LlamaParse API for advanced document parsing 
 - ✅ **Hybrid Search Engine** - Combines vector similarity and keyword matching
 - ✅ **Enhanced Citations** - Detailed source references with page numbers and confidence scores
 - ✅ **Multi-language Support** - Specialized Arabic and English processing with language detection
@@ -135,8 +135,8 @@ class HybridRetriever(BaseRetriever):
 ```
 
 **Configuration**:
-- Vector Top-K: 70 (configurable)
-- Keyword Top-K: 50 (configurable) 
+- Vector Top-K: 90 (configurable)
+- Keyword Top-K: 80 (configurable) 
 - Alpha weighting: 0.7 (favor vector search)
 - Final results: 30 after reranking
 
@@ -193,8 +193,8 @@ LLM_MODEL_NAME = "models/gemini-2.0-flash"
 EMBEDDING_MODEL_NAME = "BAAI/bge-m3"
 
 # Retrieval Parameters  
-VECTOR_TOP_K = 70
-KEYWORD_TOP_K = 50
+VECTOR_TOP_K = 90
+KEYWORD_TOP_K = 80
 FINAL_TOP_K = 30
 SIMILARITY_THRESHOLD = 0.5
 
@@ -222,10 +222,10 @@ The Streamlit sidebar provides real-time configuration:
 
 ```python
 CHROMA_COLLECTIONS = {
-    "arabic": "legal_documents_ar_v2",
-    "english": "legal_documents_en_v2", 
-    "other": "legal_documents_other_v2",
-    "unified": "legal_documents_unified_v2"
+    "arabic": "documents_ar_v2",
+    "english": "documents_en_v2", 
+    "other": "documents_other_v2",
+    "unified": "documents_unified_v2"
 }
 ```
 
@@ -386,4 +386,5 @@ DEBUG_MODE=True streamlit run app.py
 4. Test with multiple document types and languages
 5. Submit pull request with detailed description
 
-*This system represents a comprehensive approach to document Q&A with advanced RAG techniques, multi-language support, and production-ready features for professional document analysis.*
+- my email : abdelizohr@gmail.com
+- my linkedin : linkedin.com/in/zohra-abdeli/

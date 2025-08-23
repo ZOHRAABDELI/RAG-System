@@ -51,7 +51,8 @@ from utils import (
     HybridRetriever,
     MetadataEnhancer,
     ResponseVerifier,
-    analyze_answer_completeness
+    analyze_answer_completeness,
+    format_citations_safe_fallback
 )
 
 # Configure Logging
@@ -69,7 +70,7 @@ st.set_page_config(
     layout=constants.PAGE_CONFIG["layout"],
     initial_sidebar_state=constants.PAGE_CONFIG["initial_sidebar_state"]
 )
-st.title("🤖 Enhanced Agentic RAG System")
+st.title("🤖  Agentic RAG System")
 st.caption("Advanced PDF analysis with hybrid search, improved citations, and robust retrieval")
 
 # Environment Variables Check
@@ -155,7 +156,7 @@ with st.sidebar:
                                     if uploaded_file.name.lower().endswith('.pdf'):
                                         temp_file_path = os.path.join(tmp_input_path, uploaded_file.name)
                                         parsed_docs = parser.load_data(temp_file_path)
-                                        # Enhanced metadata for each document
+                                        #  metadata for each document
                                         for doc in parsed_docs:
                                             doc.metadata.update({
                                                 'file_name': uploaded_file.name,
@@ -304,7 +305,7 @@ with st.sidebar:
                                 }
                                 st.session_state.hybrid_retrievers["unified"] = hybrid_retriever
                                 st.success(f"✅ Built unified indices with {len(documents)} documents")
-                            st.success("🎉 Enhanced processing completed!")
+                            st.success("Processing completed!")
                             # Display processing statistics
                             st.info(f"""
                             📊 **Processing Stats:**
@@ -367,9 +368,9 @@ else:
             with st.chat_message("user"):
                 st.markdown(prompt)
             # Generate  response
-            # Replace the query processing section in your main app with this enhanced version
-# Enhanced and safe query processing section for your app.py
+#   safe query processing section 
 
+# Generate  response (replace the existing query processing section)
             with st.chat_message("assistant"):
                 message_placeholder = st.empty()
                 try:
@@ -435,9 +436,9 @@ else:
                     citations = []
                     try:
                         citations = format_citations_enhanced(retrieved_nodes)
-                        logger.info(f"Enhanced citations generated: {len(citations)}")
+                        logger.info(f" citations generated: {len(citations)}")
                     except Exception as e:
-                        logger.error(f"Enhanced citation formatting failed: {e}")
+                        logger.error(f" citation formatting failed: {e}")
                         try:
                             # Fallback to safe citation formatting
                             citations = format_citations_safe_fallback(retrieved_nodes)

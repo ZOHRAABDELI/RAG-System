@@ -11,15 +11,12 @@ from llama_index.core import QueryBundle
 import hashlib
 from datetime import datetime
 from collections import defaultdict
-
 import constants as constants
 
 logger = logging.getLogger(__name__)
-
-# --- Place this updated function in enhanced_app.py, replacing the existing one ---
 def format_citations_enhanced(retrieved_nodes: List[NodeWithScore]) -> List[str]:
     """
-    Enhanced citation formatting that always shows sources when nodes are available,
+     citation formatting that always shows sources when nodes are available,
     but intelligently deduplicates and prioritizes the most relevant ones.
     """
     if not retrieved_nodes:
@@ -62,7 +59,7 @@ def format_citations_enhanced(retrieved_nodes: List[NodeWithScore]) -> List[str]
                 node = node_with_score
                 score = 0.0
 
-            # Safely convert score to float
+            #  convert score to float
             try:
                 score = float(score) if score is not None else 0.0
             except (ValueError, TypeError):
@@ -224,6 +221,66 @@ def format_citations_enhanced(retrieved_nodes: List[NodeWithScore]) -> List[str]
 def format_citations_safe_fallback(retrieved_nodes: List[NodeWithScore]) -> List[str]:
     """
     Ultra-safe fallback citation formatter that ALWAYS returns citations if nodes exist.
+    """
+    if not retrieved_nodes:
+        return []
+    
+    citations = []
+    seen_files = set()
+    
+    for i, node_with_score in enumerate(retrieved_nodes):
+        try:
+            # Extract basic info safely
+            if isinstance(node_with_score, NodeWithScore):
+                node = node_with_score.node
+                score = getattr(node_with_score, 'score', 0.0)
+            else:
+                node = node_with_score
+                score = 0.0
+            
+            # Get file name with multiple fallbacks
+            file_name = "مصدر غير محدد"  # Default Arabic
+            if hasattr(node, 'metadata') and node.metadata:
+                file_name = (
+                    node.metadata.get('file_name') or
+                    node.metadata.get('filename') or
+                    f"مصدر_{i+1}"
+                )
+            
+            # Avoid duplicates
+            if file_name in seen_files:
+                continue
+            seen_files.add(file_name)
+            
+            # Create simple citation
+            citation = f"📄 {file_name}"
+            
+            # Add page info if available
+            if hasattr(node, 'metadata') and node.metadata:
+                page_info = node.metadata.get('page_label') or node.metadata.get('page')
+                if page_info and str(page_info).strip() not in ['N/A', '', 'None']:
+                    citation += f" | صفحة {page_info}"
+            
+            citations.append(citation)
+            
+            # Limit to 3 sources for simplicity
+            if len(citations) >= 3:
+                break
+                
+        except Exception as e:
+            logger.error(f"Error in fallback citation for node {i}: {e}")
+            # Even if there's an error, add a basic citation
+            citations.append(f"📄 مصدر_{i+1} | موقع غير محدد")
+    
+    # Ensure at least one citation
+    if not citations:
+        citations = [f"📄 مصدر 1 | موقع غير محدد"]
+    
+    return citations
+
+def format_citations_safe_fallback(retrieved_nodes: List[NodeWithScore]) -> List[str]:
+    """
+    Ultra-safe fallback citation formatter that ALWAYS returns citations if nodes exist.
     Use this as a backup if the enhanced version fails.
     """
     if not retrieved_nodes:
@@ -325,7 +382,7 @@ def analyze_answer_completeness(retrieved_nodes: List[NodeWithScore], query: str
 
 def detect_language(text: str) -> str:
     """
-    Enhanced language detection with better Arabic support and confidence scoring.
+     language detection with better Arabic support and confidence scoring.
     """
     if not text or len(text.strip()) < constants.MIN_TEXT_LENGTH:
         return "unknown"
@@ -335,7 +392,7 @@ def detect_language(text: str) -> str:
         clean_text = re.sub(r'[^\w\s]', ' ', text)
         clean_text = re.sub(r'\s+', ' ', clean_text.strip())
         
-        # Enhanced Arabic character detection
+        #  Arabic character detection
         arabic_patterns = [
             r'[\u0600-\u06FF]',  # Arabic block
             r'[\u0750-\u077F]',  # Arabic Supplement
@@ -385,7 +442,7 @@ def detect_language(text: str) -> str:
 
 def validate_input(query: str) -> bool:
     """
-    Enhanced input validation with security checks and content analysis.
+     input validation with security checks and content analysis.
     """
     if not query or len(query.strip()) < 2:
         return False
@@ -418,7 +475,7 @@ def validate_input(query: str) -> bool:
 
 def clean_arabic_text(text: str) -> str:
     """
-    Enhanced Arabic text cleaning and normalization.
+     Arabic text cleaning and normalization.
     """
     if not text:
         return text
@@ -447,7 +504,7 @@ def clean_arabic_text(text: str) -> str:
 
 def create_comprehensive_prompt_v2(query_language: str, context_str: str, query_str: str) -> str:
     """
-    Enhanced prompt creation with better anti-hallucination measures and context handling.
+     prompt creation with better anti-hallucination measures and context handling.
     """
     if query_language == "arabic":
         return f"""أنت مساعد ذكي متخصص في الإجابة على الأسئلة بناءً *حصرياً* على المعلومات المقدمة. اتبع هذه القواعد بدقة شديدة:
@@ -463,7 +520,6 @@ def create_comprehensive_prompt_v2(query_language: str, context_str: str, query_
 8. **القوائم الشاملة**: إذا طُلبت قائمة، يجب تضمين *جميع* العناصر - صفر استثناءات، وتجنب التكرار إلا إذا كان في النص.
 9. **الترقيم الأصلي**: احتفظ بأرقام المواد والفقرات كما وردت تماماً.
 10. **الاستشهاد الإجباري**: لكل نقطة، اذكر (المادة X، الفقرة Y) واقتبس العبارات الرئيسية مباشرة من النص.
-11. **التعامل مع التكرار**: إذا ذكرت المعلومات في وثائق متعددة، استشهد بكل المصادر ذات الصلة.
 **تنبيه هام:** فكر خطوة بخطوة: أولاً، اقرأ السياق كاملاً؛ ثانياً، حدد المعلومات ذات الصلة؛ ثالثاً، رتب الإجابة؛ أخيراً، راجع إجابتك للتأكد من الدقة والاكتمال وعدم نسيان أي عنصر موجود في السياق.
 
 **السياق المقدم:**
@@ -477,6 +533,7 @@ def create_comprehensive_prompt_v2(query_language: str, context_str: str, query_
 - استخدم نقاط مرقمة لكل عنصر أو نقطة مع الإشارة إلى مصدرها.
 - ضمن الاكتمال والدقة باستخدام اقتباسات مباشرة حيث يناسب.
 - لا تضف تفسيرات أو تعليقات إضافية غير موجودة في النص.
+استخرج وقم بإدراج كل عنصر واحد مذكور في السياق، حتى لو كان موزعًا عبر عدة أقسام. لا تُلخِّص أو تُهمل أي شيء.
 
 **الإجابة:**"""
 
@@ -494,7 +551,6 @@ def create_comprehensive_prompt_v2(query_language: str, context_str: str, query_
 8. **Exhaustive Lists**: If a list is requested, include *ALL* elements - zero exceptions, and avoid duplication unless in the text.
 9. **Original Numbering**: Preserve article and paragraph numbers exactly as stated.
 10. **Mandatory Citations**: For each point, include (Article X, Paragraph Y) and quote key phrases directly from the text.
-11. **Handling Duplicates**: If information is mentioned in multiple documents, cite all relevant sources.
 **Important:** Think step-by-step: First, read the full context; Second, identify relevant information; Third, organize the answer; Finally, review your answer to ensure accuracy, completeness, and that no element from context is forgotten.
 
 **Provided Context:**
@@ -508,12 +564,13 @@ def create_comprehensive_prompt_v2(query_language: str, context_str: str, query_
 - Use numbered points for each item or point with source references.
 - Ensure completeness and accuracy using direct quotes where appropriate.
 - Do not add interpretations or comments not found in the text.
+- Extract and list EVERY SINGLE item mentioned in the context, even if spread across multiple sections. Do not summarize or omit any
 
 **Answer:**"""
     
 class HybridRetriever(BaseRetriever):
     """
-    Enhanced hybrid retriever combining vector and keyword search with intelligent fusion.
+     hybrid retriever combining vector and keyword search with intelligent fusion.
     """
     def __init__(
         self,
@@ -643,10 +700,11 @@ class HybridRetriever(BaseRetriever):
         # Sort by hybrid score and return top results
         hybrid_nodes.sort(key=lambda x: (x.score if x.score is not None else -1), reverse=True) # Handle potential None in sorting
         return hybrid_nodes[:max(self.vector_top_k, self.keyword_top_k)]
-
+    
 class MetadataEnhancer:
+
     """
-    Enhanced metadata extraction and enrichment for better document tracking.
+     metadata extraction and enrichment for better document tracking.
     """
     
     def extract_file_metadata(self, filename: str, file_size: int) -> Dict[str, Any]:
@@ -685,7 +743,7 @@ class MetadataEnhancer:
 
 class ResponseVerifier:
     """
-    Advanced response verification to detect potential hallucinations and quality issues.
+     response verification to detect potential hallucinations and quality issues.
     """
     
     def verify_response(

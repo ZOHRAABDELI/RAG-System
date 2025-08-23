@@ -28,25 +28,25 @@ EMBEDDING_MODELS = {
     "legal": "nlpaueb/legal-bert-base-uncased"
 }
 
-# --- Enhanced Vector Store Configuration ---
+# ---  Vector Store Configuration ---
 VECTORSTORE_DIR = "./chroma_db"
-CHROMA_COLLECTION_NAME = "enhanced_legal_documents"
+CHROMA_COLLECTION_NAME = "enhanced_documents"
 
 # Language-specific and domain-specific collections
 CHROMA_COLLECTIONS = {
-    "arabic": "legal_documents_ar_v2",
-    "english": "legal_documents_en_v2",
-    "other": "legal_documents_other_v2",
+    "arabic": "documents_ar_v2",
+    "english": "documents_en_v2",
+    "other": "documents_other_v2",
     "unified": "legal_documents_unified_v2",
-    "contracts": "legal_contracts",
-    "regulations": "legal_regulations",
-    "policies": "legal_policies"
+    "contracts": "contracts",
+    "regulations": "regulations",
+    "policies": "policies"
 }
 
 # ---  Document Processing Configuration ---
 # Optimized chunking parameters 
 CHUNK_SIZE = 1200           
-CHUNK_OVERLAP = 400        
+CHUNK_OVERLAP = 600        
 MIN_CHUNK_SIZE = 100      
 MAX_CHUNK_SIZE = 2000   
 
@@ -56,13 +56,13 @@ SEMANTIC_BUFFER_SIZE = 2
 
 # ---  Retrieval Configuration ---
 
-DEFAULT_SIMILARITY_TOP_K = 70   # Increased from 60    
-VECTOR_TOP_K = 70              # Increased from 60 - Casts a wider vector net
-KEYWORD_TOP_K = 50             # Increased from 40 - Casts a wider keyword net
-FINAL_TOP_K = 35               # Increased from 25 - CRITICAL: More context to LLM
+DEFAULT_SIMILARITY_TOP_K = 70    
+VECTOR_TOP_K = 90              
+KEYWORD_TOP_K = 80   
+FINAL_TOP_K = 30         
 
 # Similarity thresholds 
-SIMILARITY_THRESHOLD = 0.4    
+SIMILARITY_THRESHOLD = 0.3   
 HIGH_CONFIDENCE_THRESHOLD = 0.8  
 LOW_CONFIDENCE_THRESHOLD = 0.3   
 # ---  Reranking Configuration ---
@@ -80,11 +80,11 @@ RERANK_BATCH_SIZE = 32          # Batch size for reranking
 RERANK_SCORE_THRESHOLD = 0.1    # Minimum rerank score
 
 # --- Language Detection Configuration ---
-ARABIC_THRESHOLD = 0.25         # Lowered for better detection
-MIN_TEXT_LENGTH = 5             # Minimum text length for detection
+ARABIC_THRESHOLD = 0.25        
+MIN_TEXT_LENGTH = 5             
 LANGUAGE_CONFIDENCE_THRESHOLD = 0.8
 
-# Enhanced language patterns
+#  language patterns
 ARABIC_SCRIPT_RANGES = [
     (0x0600, 0x06FF),  # Arabic
     (0x0750, 0x077F),  # Arabic Supplement
@@ -93,7 +93,7 @@ ARABIC_SCRIPT_RANGES = [
     (0xFE70, 0xFEFF),  # Arabic Presentation Forms-B
 ]
 
-# --- Enhanced Legal Patterns ---
+# ---  Legal Patterns ---
 ARABIC_LEGAL_PATTERNS = {
     'articles': [
         r'المادة\s+\d+',
@@ -162,7 +162,7 @@ ENGLISH_LEGAL_PATTERNS = {
     ]
 }
 
-# --- Enhanced Response Templates ---
+# ---  Response Templates ---
 ARABIC_RESPONSE_TEMPLATE = """
 **الإجابة المفصلة:**
 {response_content}
@@ -196,7 +196,7 @@ ALLOWED_FILE_TYPES = ['.pdf', '.docx', '.txt', '.md']
 MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB per file
 MAX_TOTAL_SIZE = 500 * 1024 * 1024  # 500MB total
 
-# Enhanced security patterns
+#  security patterns
 SUSPICIOUS_PATTERNS = [
     r'<script[^>]*>.*?</script>',
     r'javascript\s*:',
@@ -241,11 +241,11 @@ ENABLE_RERANKING = True
 ENABLE_LANGUAGE_SEPARATION = False
 ENABLE_HYBRID_SEARCH = True
 ENABLE_SEMANTIC_CHUNKING = False
-ENABLE_RESPONSE_VERIFICATION = False
+ENABLE_RESPONSE_VERIFICATION = True
 ENABLE_METADATA_ENHANCEMENT = True
 ENABLE_QUERY_OPTIMIZATION = True
 ENABLE_LLAMA_PARSE = False
-CHUNKING_STRATEGY = "fixed" # Options: fixed, sentence, semantic
+CHUNKING_STRATEGY = "semantic" # Options: fixed, sentence, semantic
 
 # Advanced features
 ENABLE_QUERY_EXPANSION = False      # Experimental
