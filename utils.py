@@ -17,9 +17,7 @@ import constants as constants
 logger = logging.getLogger(__name__)
 
 def format_citations_enhanced(retrieved_nodes: List[NodeWithScore]) -> List[str]:
-    """
-    Enhanced citation formatting with improved metadata extraction and fallback mechanisms.
-    """
+    
     file_to_pages = defaultdict(list)
     seen_citations = set()
     for i, node_with_score in enumerate(retrieved_nodes):
@@ -102,6 +100,128 @@ def format_citations_enhanced(retrieved_nodes: List[NodeWithScore]) -> List[str]
             citations.append(citation)
     return citations
 
+""" 
+def format_citations_enhanced(retrieved_nodes: List[NodeWithScore]) -> List[str]:
+   
+    # Dictionary to hold the best citation info per file based on highest score
+    # Key: file_name, Value: {'page_str': str, 'score': float}
+    file_citations = {}
+    
+    # Threshold for considering a node's score relevant enough for citation
+    # Nodes with scores below this (and not the best for their file) are ignored
+    MIN_RELEVANCE_FOR_CITATION = 0.1 
+
+    for i, node_with_score in enumerate(retrieved_nodes):
+        try:
+            # Handle both NodeWithScore and potential fallbacks
+            if isinstance(node_with_score, NodeWithScore):
+                node = node_with_score.node
+                score = getattr(node_with_score, 'score', None)
+            else:
+                # If it's not a NodeWithScore, it might be from an older process, skip detailed scoring
+                node = node_with_score
+                score = None
+
+            # Safely convert score to float, defaulting to 0.0 if missing or invalid
+            try:
+                score = float(score) if score is not None else 0.0
+            except (ValueError, TypeError):
+                score = 0.0
+
+            if not hasattr(node, 'metadata'):
+                logger.warning(f"Node {i} missing metadata")
+                continue
+
+            metadata = node.metadata
+
+            # --- Robust File Name Extraction ---
+            file_name = (
+                metadata.get('file_name') or
+                metadata.get('filename') or
+                metadata.get('source') or
+                metadata.get('document_id') or
+                os.path.basename(metadata.get('file_path', '')) or
+                f"Document_{i+1}"
+            )
+
+            # Clean and ensure a valid file name
+            if not file_name or file_name in ['Unknown File', '']:
+                 file_path = metadata.get('file_path', '')
+                 if file_path:
+                     file_name = os.path.basename(file_path)
+                 else:
+                     content_hash = hashlib.md5(node.get_content()[:100].encode()).hexdigest()[:8]
+                     file_name = f"Document_{content_hash}"
+
+            # --- Page/Section/Info Extraction ---
+            page_info = (
+                metadata.get('page_label') or
+                metadata.get('page') or
+                metadata.get('page_number') or
+                metadata.get('chunk_id', '')
+            )
+
+            section_info = metadata.get('section', metadata.get('chapter', ''))
+
+            # Build the page/section string
+            page_parts = []
+            if page_info and str(page_info).strip() not in ['N/A', '']:
+                if str(page_info).isdigit():
+                    page_parts.append(f"Page {page_info}")
+                else:
+                    # Assume non-numeric is a section label
+                    page_parts.append(f"Section {page_info}")
+            if section_info and str(section_info).strip() not in ['N/A', '']:
+                page_parts.append(f"Chapter {section_info}")
+            
+            # Include score if it's meaningful and above the threshold
+            if score is not None and score >= MIN_RELEVANCE_FOR_CITATION:
+                page_parts.append(f"(Relevance: {score:.2f})")
+            
+            page_str = " | ".join(page_parts) if page_parts else "Location unspecified"
+
+            # --- Improved Deduplication Logic Focused on File Name ---
+            # Check if we've already seen this file
+            if file_name in file_citations:
+                # If the current node has a higher score, update the citation info for this file.
+                # This ensures only the most relevant-seeming part of a document is cited.
+                if score > file_citations[file_name]['score']:
+                    file_citations[file_name] = {
+                        'page_str': page_str,
+                        'score': score
+                    }
+                # If the score is equal or lower, we keep the existing (better) citation for this file.
+            else:
+                # First time seeing this file, add it only if it has a reasonable score.
+                if score >= MIN_RELEVANCE_FOR_CITATION:
+                    file_citations[file_name] = {
+                        'page_str': page_str,
+                        'score': score
+                    }
+                # Nodes with very low scores (potentially irrelevant) are not added initially.
+
+        except Exception as e:
+            logger.error(f"Error processing citation for node {i}: {e}")
+            # Robust fallback, but only add if not already present or if needed for debugging
+            # Usually, we'd prefer not to show these.
+            # fallback_name = f"Document_{i+1}"
+            # if fallback_name not in file_citations:
+            #     file_citations[fallback_name] = {'page_str': "Error in metadata extraction", 'score': 0.0}
+
+    # --- Generate Final Citation List ---
+    # Sort by score descending to show most relevant sources first
+    sorted_files = sorted(file_citations.items(), key=lambda item: item[1]['score'], reverse=True)
+
+    citations = []
+    for file_name, citation_data in sorted_files:
+        # Format the citation string for this file
+        citation = f"📄 {file_name}"
+        if citation_data['page_str']:
+            citation += f" | {citation_data['page_str']}"
+        citations.append(citation)
+
+    return citations
+ """
 def detect_language(text: str) -> str:
     """
     Enhanced language detection with better Arabic support and confidence scoring.
@@ -232,17 +352,19 @@ def create_comprehensive_prompt_v2(query_language: str, context_str: str, query_
         return f"""أنت مساعد ذكي متخصص في الإجابة على الأسئلة بناءً *حصرياً* على المعلومات المقدمة. اتبع هذه القواعد بدقة شديدة:
 
 **القواعد الأساسية:**
-1. **الاعتماد الحصري على السياق:** استخدم فقط المعلومات الموجودة في الوثائق المقدمة أدناه. لا تفترض أو تضيف أي معلومات خارجية.
-2. **الدقة في الاستخلاص:** عند طلب قوائم محددة، قدم *جميع* العناصر كما وردت تماماً في النص، مع الإشارة إلى رقم المادة والفقرة.
-3. **التحقق من الاكتمال:** ابحث في *كامل* السياق المقدم للتأكد من عدم تفويت أي معلومات ذات صلة.
+1. **الاعتماد الحصري على السياق:** استخدم فقط المعلومات الموجودة في الوثائق المقدمة أدناه. لا تسترجع إلا ما هو موجود، ولا تتخمين أبداً.
+2. **الدقة في الاستخلاص:** عند طلب قوائم محددة، قدم *جميع* العناصر كما وردت تماماً في النص، مع الإشارة إلى رقم المادة والفقرة. اجمعها في ترتيب ظهورها أو حسب التصنيف إذا كان مناسباً.
+3. **التحقق من الاكتمال:** ابحث في *كامل* السياق المقدم للتأكد من عدم تفويت أي معلومات ذات صلة. عد العناصر بدقة إذا طُلب عددها.
 4. **المصطلحات :** استخدم المصطلحات كما وردت في النص دون تغيير أو استبدال.
-5. **الشفافية:** إذا لم تجد معلومات كافية، أجب بوضوح: "لا توجد معلومات كافية في الوثائق المقدمة."
-6. **البحث الكامل**: ابحث في *كل* السياق المقدم أدناه - اقرأ كل سطر
-7. **عدم التوقف المبكر**: لا تتوقف عند أول نتيجة - استمر حتى نهاية النص
-8. **القوائم الشاملة**: إذا طُلبت قائمة، يجب تضمين *جميع* العناصر - صفر استثناءات
-9. **الترقيم الأصلي**: احتفظ بأرقام المواد والفقرات كما وردت تماماً
-10. **الاستشهاد الإجباري**: لكل نقطة، اذكر (المادة X، الفقرة Y)
-**تنبيه هام:** راجع إجابتك قبل الإرسال وتأكد من عدم نسيان أي عنصر موجود في السياق.
+5. **الشفافية:** إذا لم تجد معلومات كافية، أجب بوضوح: "لا توجد معلومات كافية في الوثائق المقدمة." لا تضف تفسيرات خارجية.
+6. **البحث الكامل**: ابحث في *كل* السياق المقدم أدناه - اقرأ كل سطر بعناية.
+7. **عدم التوقف المبكر**: لا تتوقف عند أول نتيجة - استمر حتى نهاية النص لجمع كل التفاصيل.
+8. **القوائم الشاملة**: إذا طُلبت قائمة، يجب تضمين *جميع* العناصر - صفر استثناءات، وتجنب التكرار إلا إذا كان في النص.
+9. **الترقيم الأصلي**: احتفظ بأرقام المواد والفقرات كما وردت تماماً.
+10. **الاستشهاد الإجباري**: لكل نقطة، اذكر (المادة X، الفقرة Y) واقتبس العبارات الرئيسية مباشرة من النص.
+11. **التعامل مع التكرار**: إذا ذكرت المعلومات في وثائق متعددة، استشهد بكل المصادر ذات الصلة.
+**تنبيه هام:** فكر خطوة بخطوة: أولاً، اقرأ السياق كاملاً؛ ثانياً، حدد المعلومات ذات الصلة؛ ثالثاً، رتب الإجابة؛ أخيراً، راجع إجابتك للتأكد من الدقة والاكتمال وعدم نسيان أي عنصر موجود في السياق.
+
 **السياق المقدم:**
 {context_str}
 
@@ -250,28 +372,29 @@ def create_comprehensive_prompt_v2(query_language: str, context_str: str, query_
 {query_str}
 
 **التعليمات الإضافية:**
-- ابدأ مباشرة بالإجابة دون مقدمات
-- رقم كل نقطة أو عنصر مع الإشارة إلى مصدرها
-- تأكد من الاكتمال والدقة
-- لا تضف تفسيرات أو تعليقات إضافية غير موجودة في النص
+- ابدأ مباشرة بالإجابة دون مقدمات أو تفكير مرئي.
+- استخدم نقاط مرقمة لكل عنصر أو نقطة مع الإشارة إلى مصدرها.
+- ضمن الاكتمال والدقة باستخدام اقتباسات مباشرة حيث يناسب.
+- لا تضف تفسيرات أو تعليقات إضافية غير موجودة في النص.
 
 **الإجابة:**"""
 
     else:  # English
-        return f"""You are an intelligent assistant specialized in  answering questions based *exclusively* on the provided information. Follow these rules with strict precision:
+        return f"""You are an intelligent assistant specialized in answering questions based *exclusively* on the provided information. Follow these rules with strict precision:
 
 **Core Rules:**
-1. **Exclusive Context Reliance:** Use only information explicitly present in the documents provided below. Do not assume or add external information.
-2. **Extraction Precision:** When specific lists are requested, provide *all* elements exactly as stated in the text, with proper article and paragraph references.
-3. **Completeness Verification:** Search the *entire* provided context to ensure no relevant information is missed.
-4. ** Terminology:** Use terms exactly as they appear in the text without alteration or substitution.
-5. **Transparency:** If insufficient information is found, clearly respond: "Insufficient information in provided documents."
-6. **Complete Search**: Search through *ALL* the context provided below - read every line
-7. **No Early Stopping**: Don't stop at the first result - continue to the end of text
-8. **Exhaustive Lists**: If a list is requested, include *ALL* elements - zero exceptions
-9. **Original Numbering**: Preserve article and paragraph numbers exactly as stated
-10. **Mandatory Citations**: For each point, include (Article X, Paragraph Y)
-**Important:** Review your answer before sending and ensure no element from context is forgotten.
+1. **Exclusive Context Reliance:** Use only information explicitly present in the documents provided below. Retrieve only what is there, no guessing ever.
+2. **Extraction Precision:** When specific lists are requested, provide *all* elements exactly as stated in the text, with proper article and paragraph references. Present them in order of appearance or grouped by category if applicable.
+3. **Completeness Verification:** Search the *entire* provided context to ensure no relevant information is missed. Count items precisely if a count is requested.
+4. **Terminology:** Use terms exactly as they appear in the text without alteration or substitution.
+5. **Transparency:** If insufficient information is found, clearly respond: "Insufficient information in provided documents." Do not add external interpretations.
+6. **Complete Search**: Search through *ALL* the context provided below - read every line carefully.
+7. **No Early Stopping**: Don't stop at the first result - continue to the end of text to gather all details.
+8. **Exhaustive Lists**: If a list is requested, include *ALL* elements - zero exceptions, and avoid duplication unless in the text.
+9. **Original Numbering**: Preserve article and paragraph numbers exactly as stated.
+10. **Mandatory Citations**: For each point, include (Article X, Paragraph Y) and quote key phrases directly from the text.
+11. **Handling Duplicates**: If information is mentioned in multiple documents, cite all relevant sources.
+**Important:** Think step-by-step: First, read the full context; Second, identify relevant information; Third, organize the answer; Finally, review your answer to ensure accuracy, completeness, and that no element from context is forgotten.
 
 **Provided Context:**
 {context_str}
@@ -280,13 +403,13 @@ def create_comprehensive_prompt_v2(query_language: str, context_str: str, query_
 {query_str}
 
 **Additional Instructions:**
-- Start directly with the answer, no preambles
-- Number each point or element with source references
-- Ensure completeness and accuracy
-- Do not add interpretations or comments not found in the text
+- Start directly with the answer, no preambles or visible thinking.
+- Use numbered points for each item or point with source references.
+- Ensure completeness and accuracy using direct quotes where appropriate.
+- Do not add interpretations or comments not found in the text.
 
 **Answer:**"""
-
+    
 class HybridRetriever(BaseRetriever):
     """
     Enhanced hybrid retriever combining vector and keyword search with intelligent fusion.
@@ -328,8 +451,7 @@ class HybridRetriever(BaseRetriever):
 
         # Keyword retrieval
         try:
-            # Use the stored keyword index object correctly
-            # Ensure the keyword index has an 'as_retriever' method
+
             if hasattr(self.keyword_index, 'as_retriever'):
                  keyword_retriever = self.keyword_index.as_retriever(similarity_top_k=self.keyword_top_k)
                  keyword_nodes = keyword_retriever.retrieve(query_str)
@@ -527,7 +649,7 @@ class ResponseVerifier:
             'num_sources': len(retrieved_nodes)
         }
 
-# Additional utility functions for enhanced RAG
+# Additional utility functions for  RAG
 
 def extract_legal_references(text: str, language: str = "english") -> List[Dict[str, str]]:
     """

@@ -7,7 +7,7 @@ load_dotenv()
 # --- API Configuration ---
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 # Optional: LlamaParse API key for advanced document parsing
-LLAMAPARSE_API_KEY = os.getenv("LLAMAPARSE_API_KEY")
+LLAMA_CLOUD_API_KEY = os.getenv("LLAMAPARSE_API_KEY")
 
 # ---  Model Configuration ---
 LLM_MODEL_NAME = "models/gemini-2.0-flash"  
@@ -55,19 +55,19 @@ SEMANTIC_SIMILARITY_THRESHOLD = 0.8
 SEMANTIC_BUFFER_SIZE = 2
 
 # ---  Retrieval Configuration ---
-# Optimized retrieval parameters
-DEFAULT_SIMILARITY_TOP_K = 50    
-VECTOR_TOP_K = 70             
-KEYWORD_TOP_K = 50              
-FINAL_TOP_K = 30                
 
-# Similarity thresholds
-SIMILARITY_THRESHOLD = 0.5       # Minimum similarity for inclusion
-HIGH_CONFIDENCE_THRESHOLD = 0.8  # High confidence threshold
-LOW_CONFIDENCE_THRESHOLD = 0.3   # Low confidence threshold
+DEFAULT_SIMILARITY_TOP_K = 70   # Increased from 60    
+VECTOR_TOP_K = 70              # Increased from 60 - Casts a wider vector net
+KEYWORD_TOP_K = 50             # Increased from 40 - Casts a wider keyword net
+FINAL_TOP_K = 35               # Increased from 25 - CRITICAL: More context to LLM
 
+# Similarity thresholds 
+SIMILARITY_THRESHOLD = 0.4    
+HIGH_CONFIDENCE_THRESHOLD = 0.8  
+LOW_CONFIDENCE_THRESHOLD = 0.3   
 # ---  Reranking Configuration ---
 RERANKER_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+RERANKER_TYPE = "sentence-transformer"
 RERANKER_MODELS = {
     "fast": "cross-encoder/ms-marco-TinyBERT-L-2-v2",
     "balanced": "cross-encoder/ms-marco-MiniLM-L-6-v2", 
@@ -190,8 +190,8 @@ ENGLISH_RESPONSE_TEMPLATE = """
 """
 
 # --- Security and Validation Configuration ---
-MAX_QUERY_LENGTH = 3000          # Increased for complex queries
-MAX_RESPONSE_LENGTH = 8000       # Maximum response length
+MAX_QUERY_LENGTH = 3000          
+MAX_RESPONSE_LENGTH = 8000      
 ALLOWED_FILE_TYPES = ['.pdf', '.docx', '.txt', '.md']
 MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB per file
 MAX_TOTAL_SIZE = 500 * 1024 * 1024  # 500MB total
@@ -219,7 +219,7 @@ VALID_QUERY_PATTERNS = [
     r'[a-zA-Z]+',  # English text
 ]
 
-# --- Advanced Logging Configuration ---
+# ---  Logging Configuration ---
 LOG_LEVEL = "INFO"
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s"
 LOG_FILE = "enhanced_rag_agent.log"
@@ -238,12 +238,14 @@ EMBEDDING_TIMEOUT = 120            # 2 minutes
 
 # --- Feature Flags ---
 ENABLE_RERANKING = True
-ENABLE_LANGUAGE_SEPARATION = True
+ENABLE_LANGUAGE_SEPARATION = False
 ENABLE_HYBRID_SEARCH = True
-ENABLE_SEMANTIC_CHUNKING = True
-ENABLE_RESPONSE_VERIFICATION = True
+ENABLE_SEMANTIC_CHUNKING = False
+ENABLE_RESPONSE_VERIFICATION = False
 ENABLE_METADATA_ENHANCEMENT = True
 ENABLE_QUERY_OPTIMIZATION = True
+ENABLE_LLAMA_PARSE = False
+CHUNKING_STRATEGY = "fixed" # Options: fixed, sentence, semantic
 
 # Advanced features
 ENABLE_QUERY_EXPANSION = False      # Experimental
@@ -253,7 +255,7 @@ ENABLE_FACT_CHECKING = False        # Experimental
 # --- UI Configuration ---
 PAGE_CONFIG = {
     "page_title": "🤖  Agentic RAG System",
-    "page_icon": "⚖️",
+    "page_icon": "🤖",
     "layout": "wide",
     "initial_sidebar_state": "expanded"
 }
@@ -365,92 +367,6 @@ SUCCESS_MESSAGES = {
     }
 }
 
-# ---  Prompt Templates ---
-SYSTEM_PROMPTS = {
-    "arabic": {
-        "comprehensive": """أنت مساعد ذكي متخصص في تحليل الوثائق. اتبع هذه التعليمات بدقة:
-
-1. **الاعتماد الكامل**: استخدم فقط المعلومات الموجودة في الوثائق المقدمة، ولا تضف أي معرفة من خارجها.
-2. **الدقة**: اقتبس النصوص أو المقاطع كما وردت مع الإشارة إلى أرقام الصفحات أو العناوين عند توفرها.
-3. **الشمولية**: ابحث في كامل السياق للحصول على جميع المعلومات ذات الصلة.
-4. **الوضوح والتنظيم**: قدم الإجابة في شكل نقاط أو فقرات مرقمة.
-5. **التحقق**: تأكد أن كل معلومة مدعومة بالوثيقة.
-6. **النقص في المعلومات**: إذا لم تجد معلومات كافية، أجب بوضوح: "لا توجد معلومات كافية في الوثائق المقدمة".
-
-تنسيق الإجابة المتوقعة:
-- النقطة الأولى (الصفحة/العنوان)
-- النقطة الثانية (الصفحة/العنوان)
-...""",
-
-        "list_extraction": """أنت متخصص في استخراج القوائم من الوثائق. عند طلب قائمة:
-
-1. **اجمع كل العناصر** كما وردت دون تعديل.
-2. **حافظ على الترقيم أو الترتيب الأصلي** إن وُجد.
-3. **اذكر المصدر** (صفحة/عنوان/فقرة) مع كل عنصر.
-4. **تأكد من الاكتمال**: لا تسقط أي عنصر.
-5. **التزم بالأصل**: لا تضف أو تحذف أي شيء.
-
-تنسيق الإجابة:
-- العنصر الأول (الصفحة/العنوان)
-- العنصر الثاني (الصفحة/العنوان)
-...""",
-
-        "explanation": """أنت مساعد متخصص في شرح المفاهيم الواردة في الوثائق. عند الشرح:
-
-1. **ابدأ بالتعريف أو النص الأصلي** كما ورد في الوثيقة.
-2. **أضف السياق المباشر** من الوثائق.
-3. **اربط بالأجزاء ذات الصلة** عند الإمكان.
-4. **استخدم المصطلحات الأصلية** كما هي دون تغيير.
-5. **تجنب أي تفسير شخصي** أو إضافة خارجية.
-
-تنسيق الإجابة:
-- التعريف
-- السياق
-- الأجزاء ذات الصلة"""
-    },
-
-    "english": {
-        "comprehensive": """You are an AI assistant specialized in analyzing documents. Follow these rules strictly:
-
-1. **Exclusive reliance**: Use only information found in the provided documents; do not add external knowledge.
-2. **Accuracy**: Quote passages exactly as written and include page numbers, headings, or references when available.
-3. **Completeness**: Search across the entire context to capture all relevant information.
-4. **Clarity & structure**: Present answers as bullet points or clearly numbered sections.
-5. **Verification**: Ensure every statement is supported by the document.
-6. **Insufficient info**: If enough information is not available, clearly state: "Insufficient information in provided documents."
-
-Expected answer format:
-- First point (page/heading)
-- Second point (page/heading)
-...""",
-
-        "list_extraction": """You are specialized in extracting lists from documents. When a list is requested:
-
-1. **Gather all elements** exactly as they appear in the text.
-2. **Preserve numbering or order** if present.
-3. **Cite the source** (page/heading/paragraph) for each item.
-4. **Ensure completeness**: do not skip any item.
-5. **Stay faithful**: do not add or remove content.
-
-Response format:
-- First element (page/heading)
-- Second element (page/heading)
-...""",
-
-        "explanation": """You are an assistant specialized in explaining concepts found in documents. When explaining:
-
-1. **Start with the definition or original statement** as it appears in the document.
-2. **Add direct context** from the surrounding content.
-3. **Link to related sections** if available.
-4. **Use the original terminology** exactly as given.
-5. **Avoid personal interpretation** or external additions.
-
-Expected answer structure:
-- Definition
-- Context
-- Related sections"""
-    }
-}
 
 
 # --- Quality Assurance Configuration ---
