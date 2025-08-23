@@ -5,7 +5,7 @@ A  Retrieval-Augmented Generation (RAG) system with hybrid search capabilities, 
 ##  Key Features
 
 ### Core Capabilities
-- ✅ **Interactive Chat Interface** - Streamlit-based UI with enhanced conversation tracking
+- ✅ **Interactive Chat Interface** - Streamlit-based UI with  conversation tracking
 - ✅ **Advanced PDF Processing** - Multi-format document support with metadata extraction
 - ✅ **Optional LlamaParse Integration** - Use LlamaParse API for advanced document parsing 
 - ✅ **Hybrid Search Engine** - Combines vector similarity and keyword matching
@@ -25,7 +25,7 @@ A  Retrieval-Augmented Generation (RAG) system with hybrid search capabilities, 
 - **Embeddings**: BAAI/bge-m3 multilingual embeddings with HuggingFace
 - **Vector Store**: ChromaDB with persistent storage and language-specific collections
 - **Retrieval**: Custom HybridRetriever with intelligent score fusion
-- **Framework**: LlamaIndex with enhanced pipeline components
+- **Framework**: LlamaIndex with  pipeline components
 - **Frontend**: Streamlit with comprehensive configuration sidebar
 
 ## 🚀 Quick Start
