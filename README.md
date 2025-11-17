@@ -1,6 +1,6 @@
-# 🤖  Agentic RAG System
+# 🤖   RAG System
 
-A  Retrieval-Augmented Generation (RAG) system with hybrid search capabilities, multi-language support, and advanced document processing for  document analysis.
+A  Retrieval-Augmented Generation system with hybrid search capabilities, multi-language support, and advanced document processing for  document analysis.
 
 ##  Key Features
 
